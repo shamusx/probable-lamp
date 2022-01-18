@@ -1,8 +1,8 @@
 from avi.sdk.avi_api import ApiSession
 import argparse, re
 from requests.packages import urllib3
-from avi.migrationtools.ansible.ansible_config_converter import \
-    AviAnsibleConverterMigration
+from avi.migrationtools.ansible.avi_config_to_ansible import \
+    AviAnsibleConverter
 
 urllib3.disable_warnings()
 
@@ -51,7 +51,8 @@ if __name__ == '__main__':
     resp = api.get_object_by_name(path=args.type.lower(),name=args.name,tenant=args.tenant,params={'include_name':'true'})
 
     modified_resp = refCleanUp(resp)
-    avi_configuration[args.type] = modified_resp
-    # if args.ansible:
-    #     gen_playbook = AviAnsibleConverterMigration(avi_configuration, "./", 'test', False,controller_version='21.1.3')
-    #     gen_playbook.write_ansible_playbook()
+    avi_configuration[args.type] = [modified_resp]
+    print(avi_configuration)
+    if args.ansible:
+        gen_playbook = AviAnsibleConverter(avi_configuration, "./", 'test', False,controller_version='21.1.3')
+        gen_playbook.write_ansible_playbook()
