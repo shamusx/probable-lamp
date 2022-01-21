@@ -1,6 +1,7 @@
 from avi.sdk.avi_api import ApiSession
 import argparse, re
 from requests.packages import urllib3
+from copy import deepcopy
 import time
 import yaml, json, os
 
@@ -8,7 +9,8 @@ urllib3.disable_warnings()
 
 # SKIPS
 SKIP_FIELDS = ['uuid', 'url', 'ref_key', 'se_uuids', 'key_passphrase',
-               'extension', '_last_modified']
+               'extension', '_last_modified', 'max_http2_control_frames_per_connection', 'max_http2_control_frames_per_connection',
+               'max_http2_queued_frames_to_client_per_connection','max_http2_concurrent_streams_per_connection', 'max_http2_empty_data_frames_per_connection']
 
 class AviAnsibleBuilder():
     def __init__(self, config):
@@ -28,10 +30,19 @@ class AviAnsibleBuilder():
         self._build_task()
 
     def _build_task(self):
+        version_play = {
+            'name': 'Obtain Version of AviController',
+            'avi_api_version': self.auth_args,
+            'register': 'avi_controller_version'
+        }
+        self.ansible_dict['tasks'] = deepcopy([version_play])
         for l in self.config:
             for k,v in l.items():
                 for config in v:
+                    for objk,objv in config.items():
+                        config[objk] = '{{ %s_%s | default(%s) }}' % (k.upper(),objk.upper(), json.dumps(objv))
                     config.update(self.auth_args)
+                    config['api_version'] = '{{ avi_controller_version.obj.version }}'
                     self.ansible_dict['tasks'].append({'avi_'+k:config})
 
 class AviConfig(object):
@@ -49,7 +60,7 @@ class AviConfig(object):
         if self.ansible:
             ansible_configuration = AviAnsibleBuilder(avi_configuration)
             self.createDir(self.folder+'/ansible'+self.name + '-' + str(self.runtime))
-            self.createFile(yaml.dump(ansible_configuration.ansible_dict),'ansible'+self.name + '-' + str(self.runtime)+'/main.yml')
+            self.createFile(yaml.safe_dump([ansible_configuration.ansible_dict]),'ansible'+self.name + '-' + str(self.runtime)+'/main.yml')
 
     def createDir(self, dirname):
         if not os.path.exists(dirname):
