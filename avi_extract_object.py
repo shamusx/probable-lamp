@@ -9,8 +9,7 @@ urllib3.disable_warnings()
 
 # SKIPS
 SKIP_FIELDS = ['uuid', 'url', 'ref_key', 'se_uuids', 'key_passphrase',
-               'extension', '_last_modified', 'max_http2_control_frames_per_connection', 'max_http2_control_frames_per_connection',
-               'max_http2_queued_frames_to_client_per_connection','max_http2_concurrent_streams_per_connection', 'max_http2_empty_data_frames_per_connection']
+               'extension', '_last_modified']
 
 class AviAnsibleBuilder():
     def __init__(self, config):
@@ -98,9 +97,10 @@ class AviConfig(object):
     def collectConfig(self):
         avi_configuration = []
         api = ApiSession.get_session(self.controller, self.username, self.password,
-                                     tenant=args.tenant, api_version=self.api_version)
+                                     tenant=args.tenant, api_version='20.1.6')
+
         resp = api.get_object_by_name(path=self.type.lower(), name=self.name, tenant=self.tenant,
-                                      params={'include_name': 'true', 'skip_default': 'true'})
+                                      params={'include_name': 'true', 'skip_default': 'true'}, api_version=api.remote_api_version['Version'])
         avi_configuration.append({args.type.lower(): [self.refCleanUp(resp)]})
         return(avi_configuration)
 
@@ -110,7 +110,6 @@ if __name__ == '__main__':
     parser.add_argument('--username', required=True, help="Username")
     parser.add_argument('--password', required=True, help="Password")
     parser.add_argument('--tenant', default="admin", help="tenant name")
-    parser.add_argument('--api_version', default="20.1.6", help="API Version of Avi Controller")
     parser.add_argument('--name', required=True, help='Name of Object')
     parser.add_argument('--type', required=True, help="Object Type")
     parser.add_argument('--ansible', action='store_true', help="ansible")
