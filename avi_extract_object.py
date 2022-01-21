@@ -98,9 +98,9 @@ class AviConfig(object):
     def collectConfig(self):
         avi_configuration = []
         api = ApiSession.get_session(self.controller, self.username, self.password,
-                                     tenant=args.tenant)
+                                     tenant=args.tenant, api_version=self.api_version)
         resp = api.get_object_by_name(path=self.type.lower(), name=self.name, tenant=self.tenant,
-                                      params={'include_name': 'true'})
+                                      params={'include_name': 'true', 'skip_default': 'true'})
         avi_configuration.append({args.type.lower(): [self.refCleanUp(resp)]})
         return(avi_configuration)
 
@@ -110,6 +110,7 @@ if __name__ == '__main__':
     parser.add_argument('--username', required=True, help="Username")
     parser.add_argument('--password', required=True, help="Password")
     parser.add_argument('--tenant', default="admin", help="tenant name")
+    parser.add_argument('--api_version', default="20.1.6", help="API Version of Avi Controller")
     parser.add_argument('--name', required=True, help='Name of Object')
     parser.add_argument('--type', required=True, help="Object Type")
     parser.add_argument('--ansible', action='store_true', help="ansible")
