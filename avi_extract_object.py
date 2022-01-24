@@ -11,6 +11,63 @@ urllib3.disable_warnings()
 SKIP_FIELDS = ['uuid', 'url', 'ref_key', 'se_uuids', 'key_passphrase',
                'extension', '_last_modified']
 
+class AviTerraformBuilder():
+    def __init__(self, config):
+        self.config = config
+        self.cred_template = {'avi_username': {'default': 'admin'},
+                               'avi_password': {},
+                               'avi_controller': {},
+                               'avi_version': {'default': '21.1.3'}
+                               }
+        self.terraform_resource = {'resource': {}}
+        self.buildProviderFile()
+        self.buildResource()
+
+    def buildResource(self):
+        resource = {}
+        variables = {}
+        variables.update(self.cred_template)
+        for l in self.config:
+            for k,v in l.items():
+                for config in v:
+                    resource = {config['name']: {}}
+                    for objk,objv in config.items():
+                        if isinstance(objv, dict) or isinstance(objv, list):
+                            resource[config['name']].update({objk: objv})
+                            variables.update({objk.upper(): {'default': '{}'}})
+                        else:
+                            resource[config['name']].update({objk: '${var.'+objk.upper()+'}'})
+                            variables.update({objk.upper():{'default': objv}})
+                    self.terraform_resource['resource'] = {'avi_'+k: resource}
+        self.terraform_variables = {'variable': variables }
+
+    def buildProviderFile(self):
+        self.terraform_provider = {
+            'terraform':
+                {
+                    'required_providers': {
+                        'avi': {
+                            'source': 'vmware/avi',
+                            'version': '21.1.3'
+                        }
+                    }
+                }
+        }
+        self.provider = {
+            'provider':{
+                'avi':
+                    {
+                        'avi_username': "${var.avi_username}",
+                        'avi_password': "${var.avi_password}",
+                        'avi_controller': "${var.avi_controller}",
+                        # 'avi_tenant': "${var.tenant}",
+                        'avi_version': "${var.avi_version}"
+                    }
+            }
+        }
+        self.terraform_provider.update(self.provider)
+
+
 class AviAnsibleBuilder():
     def __init__(self, config):
         self.auth_args = {
@@ -65,6 +122,15 @@ class AviConfig(object):
             ansible_configuration = AviAnsibleBuilder(avi_configuration)
             self.createDir(self.folder+'/ansible'+self.name + '-' + str(self.runtime))
             self.createFile(yaml.safe_dump([ansible_configuration.ansible_dict]),'ansible'+self.name + '-' + str(self.runtime)+'/main.yml')
+        if self.terraform:
+            terraform_configuration = AviTerraformBuilder(avi_configuration)
+            self.createDir(self.folder + '/terraform' + self.name + '-' + str(self.runtime))
+            self.createFile(json.dumps(terraform_configuration.terraform_provider),
+                            'terraform' + self.name + '-' + str(self.runtime) + '/provider.tf.json')
+            self.createFile(json.dumps(terraform_configuration.terraform_variables),
+                            'terraform' + self.name + '-' + str(self.runtime) + '/variables.tf.json')
+            self.createFile(json.dumps(terraform_configuration.terraform_resource),
+                            'terraform' + self.name + '-' + str(self.runtime) + '/main.tf.json')
 
     def createDir(self, dirname):
         if not os.path.exists(dirname):
@@ -118,6 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', required=True, help='Name of Object')
     parser.add_argument('--type', required=True, help="Object Type")
     parser.add_argument('--ansible', action='store_true', help="ansible")
+    parser.add_argument('--terraform', action='store_true', help="Build Terraform Resource")
     parser.add_argument('--folder', default='output', help="folder to store outputs from script")
     args = parser.parse_args()
 
