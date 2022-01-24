@@ -39,7 +39,12 @@ class AviAnsibleBuilder():
             for k,v in l.items():
                 for config in v:
                     for objk,objv in config.items():
-                        config[objk] = '{{ %s_%s | default(%s) }}' % (k.upper(),objk.upper(), json.dumps(objv))
+                        if '_ref' in objk:
+                            object_type = re.search('(?<=/api/)(.*)(?=/)/\?name=(.*)', objv)
+                            reference_path = ('/api/' + object_type.group(1) + '?name=')
+                            config[objk] = '%s{{ %s | default(%s) }}' % (reference_path, objk.upper(), object_type.group(2))
+                        else:
+                            config[objk] = '{{ %s_%s | default(%s) }}' % (k.upper(),objk.upper(), json.dumps(objv))
                     config.update(self.auth_args)
                     config['api_version'] = '{{ avi_controller_version.obj.version }}'
                     self.ansible_dict['tasks'].append({'avi_'+k:config})
