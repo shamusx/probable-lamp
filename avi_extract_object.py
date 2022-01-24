@@ -29,11 +29,6 @@ class AviAnsibleBuilder():
         self._build_task()
 
     def _build_task(self):
-        default_dict = { 
-            "tenant" : "admin",
-            "serviceenginegroup" : "default-group"
-        }
-
         version_play = {
             'name': 'Obtain Version of AviController',
             'avi_api_version': self.auth_args,
